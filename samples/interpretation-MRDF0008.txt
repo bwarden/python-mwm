@@ -1,0 +1,46 @@
+Interpretation from Gemini... it seems to misunderstand the 55AA rows, though:
+
+This text file is an absolute goldmine for reverse-engineering the Disney Made with Magic / Glow with the Show infrastructure.
+Looking closely at this timeline, the person capturing the data wasn't just sitting still—they captured a highly active transition where the master show infrastructure temporarily fought against a passing parade float, before the user ultimately walked into an entirely different zone of the park.
+------------------------------
+## 🗺️ Step-by-Step Breakdown of the Capture Timeline## 1. 18:38:18 to 18:41:00 — The Fixed Route Transmitter Loop
+For the first ~2.5 minutes, the recording device sits in a highly regular, static environment. It picks up the structured, 4.16-second repeating master baseline loop (94 0C sync, 9A 93 override, and 9E 91 color map payload). As established, this is a permanent park transmitter keeping the crowd's ears held in a default festive pattern while waiting for a parade element.
+## 2. 18:41:14 — The Interference Collision (FF BF FF Corruptions)
+At millisecond offset 00062503 (roughly 1 minute and 2 seconds into the log), everything changes. The data stream goes chaotic.
+
+* You see long strings of junk data like FC FB B7 EF FF FF BE FF FB 5F and blocks of pure FF BF FF FF FF.
+* What happened: This is the exact moment an optical line-of-sight collision occurred. A mobile infrared emitter (likely mounted on a passing parade float) moved into range of the recorder. Because the consumer receiver was physically positioned between a strong, fixed overhead route transmitter and the float's on-board mobile emitter, the two distinct 38kHz IR carrier waves clashed, violently blinding the hardware and corrupting the packets.
+
+## 3. 18:41:29 — The Mobile Float Takes Over
+By millisecond 00065E37, the junk noise stops, and a completely clean, never-before-seen packet sequence locks in:
+
+96 F4 24 65 F3 64 F3 24 00
+96 F3 24 65 F3 64 F3 24 B3
+
+
+* What happened: The float came close enough to completely overpower the ambient overhead transmitter. The prefix shifts to a tight, rapid sequence (96 F4, 96 F3, 96 F2). These high-frequency bursts are optimized for dense, moving parade electronics to animate ears in hyper-specific local patterns as the float rolled past the spectator.
+
+## 4. 18:44:42 — The Float Departs, System Resets
+At offset 00094E36 (~2 minutes and 42 seconds in), the mobile sequence terminates with a master reset byte (98 25 0D...). Immediately after, at offset 0009503E, the log cleanly falls back into the exact ambient loop we started with (94 0C 21 D0 05 FF 60). The float has moved down the street, and the local overhead transmitter reclaims control of the space.
+## 5. 18:46:48 — Handshake Corruptions & Serial Terminal Ingestion
+Near the end of the 18:46 timeline, you see a sudden explosion of standard serial framing sequences:
+
+55 AA 06 01 07 03 32 10 53
+
+
+* What happened: 55 AA is a classic alternating bit pattern (01010101 10101010) used universally in hardware design as a preamble/sync marker for microcontrollers. This indicates the recorder was either experiencing an internal buffer overflow from intense sunlight/ambient IR noise, or the firmware dropped out of "raw sniffing mode" and began spitting internal diagnostic frames directly into the log file.
+
+## 6. 19:03:46 to 19:14:49 — Park Migration (A New Zone)
+After a long gap of silence, the log resumes at 19:09:44. The regular show loops are entirely gone. Instead, the recorder picks up massive blocks of structural data frames starting with 55 AA but ending in changing variables like 32 0F 52 and B2 AF 52.
+
+* What happened: The person packed up their gear and walked away from the parade route. They likely entered an indoor space, an interactive queue, or a completely separate land (like Tomorrowland or Fantasyland) where a totally different subset of local area automation or interactive checkout displays were transmitting localized hardware pings rather than parade choreography.
+
+------------------------------
+## 💻 Grounding Data for Your Library
+If you are structuring a parser or building a decoding library, the clean segments of this file provide an ideal baseline for validation. Based on standard community analysis of this protocol, here is how you can ground your data architecture:
+
+* Bitwise Inversion Check: Many iterations of this Disney protocol utilize inverted logic to prevent ambient infrared light from triggering false states. If your parser yields nonsensical structures, try passing your payloads through a bitwise NOT (~) operation.
+* The 94 0C Structure: Treats byte 3 as an active rolling counter (7B ➔ A4 ➔ CD). If your parser sees a 94 0C prefix, your engine can use that third byte to calculate missing packet intervals or handle packet loss metrics.
+* The 9E 91 Layout: This is your primary array for LED states. The standard schema divides the subsequent bytes into targeted zones (Left Ear, Right Ear, Tuxedo/Lanyard Bow) followed by an RGB mapping block (D0 0E FF) representing hue and brightness values.
+
+

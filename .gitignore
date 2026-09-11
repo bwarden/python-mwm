@@ -1,0 +1,24 @@
+# Python build output
+python/dist/
+__pycache__/
+
+*.log
+.DS_Store
+
+# Probe run artifacts (color_cycle dig/effects reports, known-pattern lists)
+dig_probe_*.json
+effect_probe_*.json
+known_patterns.txt
+
+# annotate_captures run logs
+annotations_*.jsonl
+
+# replay validation run artifacts (recorder logs, rx captures, reports,
+# send logs) -- ephemeral by design; only samples/replay/*.msh is tracked
+analysis/replay/runs/
+analysis/replay/*.log
+
+# User-provided capture logs are not committed; curated samples are tracked
+# explicitly (samples/headband-20260822.log).
+samples/*.log
+!samples/headband-20260822.log

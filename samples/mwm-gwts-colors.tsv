@@ -1,0 +1,82 @@
+name	hex	target	rgb	description	source
+color-off-both	90 60 A6	both	000000	off (1-bit), both ears	diyc-thread-p2-jonfether
+color-off-left	90 68 64	left	000000	off (1-bit), left ear only	diyc-thread-p2-jonfether
+color-blue-both	90 61 F8	both	0000FF	blue (1-bit), both ears	diyc-thread-p2-jonfether
+color-blue-left	90 69 3A	left	0000FF	blue (1-bit), left ear only	diyc-thread-p2-jonfether
+color-green-both	90 62 1A	both	00FF00	green (1-bit), both ears	diyc-thread-p2-jonfether
+color-green-left	90 6A D8	left	00FF00	green (1-bit), left ear only	diyc-thread-p2-jonfether
+color-cyan-both	90 63 44	both	00FFFF	cyan (1-bit), both ears	diyc-thread-p2-jonfether
+color-cyan-left	90 6B 86	left	00FFFF	cyan (1-bit), left ear only	diyc-thread-p2-jonfether
+color-red-both	90 64 C7	both	FF0000	red (1-bit), both ears	diyc-thread-p2-jonfether
+color-red-left	90 6C 05	left	FF0000	red (1-bit), left ear only	diyc-thread-p2-jonfether
+color-magenta-both	90 65 99	both	FF00FF	magenta (1-bit), both ears	diyc-thread-p2-jonfether
+color-magenta-left	90 6D 5B	left	FF00FF	magenta (1-bit), left ear only	diyc-thread-p2-jonfether
+color-yellow-both	90 66 7B	both	FFFF00	yellow (1-bit), both ears	diyc-thread-p2-jonfether
+color-yellow-left	90 6E B9	left	FFFF00	yellow (1-bit), left ear only	diyc-thread-p2-jonfether
+color-white-both	90 67 25	both	FFFFFF	white (1-bit), both ears	diyc-thread-p2-jonfether
+color-white-left	90 6F E7	left	FFFFFF	white (1-bit), left ear only	diyc-thread-p2-jonfether
+palette-00-both	91 0E 00 5F	both	ACFEFE	palette 0x00 pale cyan-white, both ears	diyc-post-259750-opossum
+palette-00-left	91 0E 80 D3	left	ACFEFE	palette 0x00 pale cyan-white, left ear only	generated-crc8-rule
+palette-01-both	91 0E 01 01	both	1F90FE	palette 0x01 sky blue, both ears	generated-crc8-rule
+palette-01-left	91 0E 81 8D	left	1F90FE	palette 0x01 sky blue, left ear only	generated-crc8-rule
+palette-02-both	91 0E 02 E3	both	1F4DFE	palette 0x02 azure blue, both ears	generated-crc8-rule
+palette-02-left	91 0E 82 6F	left	1F4DFE	palette 0x02 azure blue, left ear only	generated-crc8-rule
+palette-03-both	91 0E 03 BD	both	1F00FE	palette 0x03 blue-violet, both ears	generated-crc8-rule
+palette-03-left	91 0E 83 31	left	1F00FE	palette 0x03 blue-violet, left ear only	generated-crc8-rule
+palette-04-both	91 0E 04 3E	both	0000FE	palette 0x04 pure blue, both ears	generated-crc8-rule
+palette-04-left	91 0E 84 B2	left	0000FE	palette 0x04 pure blue, left ear only	generated-crc8-rule
+palette-05-both	91 0E 05 60	both	FFCBFE	palette 0x05 pale pink, both ears	generated-crc8-rule
+palette-05-left	91 0E 85 EC	left	FFCBFE	palette 0x05 pale pink, left ear only	generated-crc8-rule
+palette-06-both	91 0E 06 82	both	AC4DFE	palette 0x06 violet, both ears	generated-crc8-rule
+palette-06-left	91 0E 86 0E	left	AC4DFE	palette 0x06 violet, left ear only	generated-crc8-rule
+palette-07-both	91 0E 07 DC	both	6126FF	palette 0x07 indigo, both ears	generated-crc8-rule
+palette-07-left	91 0E 87 50	left	6126FF	palette 0x07 indigo, left ear only	generated-crc8-rule
+palette-08-both	91 0E 08 9D	both	7701AB	palette 0x08 purple, both ears	generated-crc8-rule
+palette-08-left	91 0E 88 11	left	7701AB	palette 0x08 purple, left ear only	generated-crc8-rule
+palette-09-both	91 0E 09 C3	both	FFACFE	palette 0x09 orchid pink, both ears	generated-crc8-rule
+palette-09-left	91 0E 89 4F	left	FFACFE	palette 0x09 orchid pink, left ear only	generated-crc8-rule
+palette-0A-both	91 0E 0A 21	both	FF2CFF	palette 0x0A magenta, both ears	generated-crc8-rule
+palette-0A-left	91 0E 8A AD	left	FF2CFF	palette 0x0A magenta, left ear only	generated-crc8-rule
+palette-0B-both	91 0E 0B 7F	both	FE0DFF	palette 0x0B fuchsia, both ears	generated-crc8-rule
+palette-0B-left	91 0E 8B F3	left	FE0DFF	palette 0x0B fuchsia, left ear only	generated-crc8-rule
+palette-0C-both	91 0E 0C FC	both	FF00CA	palette 0x0C rose magenta, both ears	generated-crc8-rule
+palette-0C-left	91 0E 8C 70	left	FF00CA	palette 0x0C rose magenta, left ear only	generated-crc8-rule
+palette-0D-both	91 0E 0D A2	both	FF0061	palette 0x0D rose pink, both ears	generated-crc8-rule
+palette-0D-left	91 0E 8D 2E	left	FF0061	palette 0x0D rose pink, left ear only	generated-crc8-rule
+palette-0E-both	91 0E 0E 40	both	FF0011	palette 0x0E scarlet, both ears	generated-crc8-rule
+palette-0E-left	91 0E 8E CC	left	FF0011	palette 0x0E scarlet, left ear only	generated-crc8-rule
+palette-0F-both	91 0E 0F 1E	both	FFCB16	palette 0x0F golden yellow, both ears	generated-crc8-rule
+palette-0F-left	91 0E 8F 92	left	FFCB16	palette 0x0F golden yellow, left ear only	generated-crc8-rule
+palette-10-both	91 0E 10 C2	both	FF560A	palette 0x10 orange, both ears	generated-crc8-rule
+palette-10-left	91 0E 90 4E	left	FF560A	palette 0x10 orange, left ear only	generated-crc8-rule
+palette-11-both	91 0E 11 9C	both	FF7701	palette 0x11 bright orange, both ears	generated-crc8-rule
+palette-11-left	91 0E 91 10	left	FF7701	palette 0x11 bright orange, left ear only	generated-crc8-rule
+palette-12-both	91 0E 12 7E	both	FFFF00	palette 0x12 pure yellow, both ears	generated-crc8-rule
+palette-12-left	91 0E 92 F2	left	FFFF00	palette 0x12 pure yellow, left ear only	generated-crc8-rule
+palette-13-both	91 0E 13 20	both	FF4400	palette 0x13 red-orange, both ears	generated-crc8-rule
+palette-13-left	91 0E 93 AC	left	FF4400	palette 0x13 red-orange, left ear only	generated-crc8-rule
+palette-14-both	91 0E 14 A3	both	FF1100	palette 0x14 orange-red, both ears	diyc-post-259750-opossum
+palette-14-left	91 0E 94 2F	left	FF1100	palette 0x14 orange-red, left ear only	diyc-post-259750-opossum
+palette-15-both	91 0E 15 FD	both	FF0000	palette 0x15 pure red, both ears	generated-crc8-rule
+palette-15-left	91 0E 95 71	left	FF0000	palette 0x15 pure red, left ear only	generated-crc8-rule
+palette-16-both	91 0E 16 1F	both	00FEFF	palette 0x16 cyan, both ears	generated-crc8-rule
+palette-16-left	91 0E 96 93	left	00FEFF	palette 0x16 cyan, left ear only	generated-crc8-rule
+palette-17-both	91 0E 17 41	both	00FE6B	palette 0x17 spring green, both ears	generated-crc8-rule
+palette-17-left	91 0E 97 CD	left	00FE6B	palette 0x17 spring green, left ear only	generated-crc8-rule
+palette-18-both	91 0E 18 00	both	00FE2C	palette 0x18 green-cyan, both ears	generated-crc8-rule
+palette-18-left	91 0E 98 8C	left	00FE2C	palette 0x18 green-cyan, left ear only	generated-crc8-rule
+palette-19-both	91 0E 19 5E	both	00FE00	palette 0x19 pure green, both ears	generated-crc8-rule
+palette-19-left	91 0E 99 D2	left	00FE00	palette 0x19 pure green, left ear only	generated-crc8-rule
+palette-1A-both	91 0E 1A BC	both	01FF00	palette 0x1A lime green, both ears	generated-crc8-rule
+palette-1A-left	91 0E 9A 30	left	01FF00	palette 0x1A lime green, left ear only	generated-crc8-rule
+palette-1B-both	91 0E 1B E2	both	DBFFCA	palette 0x1B pale green-white, both ears	generated-crc8-rule
+palette-1B-left	91 0E 9B 6E	left	DBFFCA	palette 0x1B pale green-white, left ear only	generated-crc8-rule
+palette-1C-both	91 0E 1C 61	both	FEFEFE	palette 0x1C white, both ears	generated-crc8-rule
+palette-1C-left	91 0E 9C ED	left	FEFEFE	palette 0x1C white, left ear only	generated-crc8-rule
+palette-1D-both	91 0E 1D 3F	both	000000	palette 0x1D black/off, both ears	generated-crc8-rule
+palette-1D-left	91 0E 9D B3	left	000000	palette 0x1D black/off, left ear only	generated-crc8-rule
+right-magenta-left-yellow	90 65 99 + 90 6E B9	-	-	set both magenta, then override left yellow -> right magenta / left yellow	diyc-thread-p2-jonfether
+right-blue-left-green-fused	91 61 6A 06	-	-	single fused frame: right blue, left green (1-bit); verified on real ears	diyc-post-259750-opossum
+right-white-left-orange	91 0E 00 5F + 91 0E 94 2F	-	-	set both white (palette 00), then override left orange (palette 14|80); verified on real ears	diyc-post-259750-opossum
+right-white-left-orange-fused	94 0E 00 0E 94 11	-	-	single 6-byte fused frame; length nibble 4 deviates from total-3=3 rule; ignored by real ears and strict decoders	diyc-post-259750-opossum
+park-show-frame-example	96 42 00 00 48 18 0C BE 1B	-	-	9-byte park capture decoded by RobG; CRC valid; no effect on ears (verified)	diyc-thread-p3-robg

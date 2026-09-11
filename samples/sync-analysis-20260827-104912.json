@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-08-27T17:49:12.824040+00:00",
+  "duration": 30,
+  "beacons_600605": [
+    {
+      "time": "2026-08-27T17:49:12.801342+00:00",
+      "clock_tick": 74,
+      "effect": 24,
+      "raw": "9942000048180C4AD00E8898"
+    },
+    {
+      "time": "2026-08-27T17:49:12.818877+00:00",
+      "clock_tick": 144,
+      "effect": 24,
+      "raw": "9942000048180C90D00EFB98"
+    },
+    {
+      "time": "2026-08-27T17:49:12.823726+00:00",
+      "clock_tick": 18,
+      "effect": 24,
+      "raw": "9942000048180C12D00ED698"
+    }
+  ],
+  "beacons_179E4E": [
+    {
+      "time": "2026-08-27T17:49:12.813153+00:00",
+      "clock_tick": 144,
+      "effect": 24,
+      "raw": "9942000048180C90D00EFB98"
+    },
+    {
+      "time": "2026-08-27T17:49:12.822323+00:00",
+      "clock_tick": 18,
+      "effect": 24,
+      "raw": "9942000048180C12D00ED698"
+    }
+  ],
+  "analysis": {
+    "receiver_600605_count": 3,
+    "receiver_179E4E_count": 2,
+    "clock_ticks_600605": [
+      74,
+      144,
+      18
+    ],
+    "clock_ticks_179E4E": [
+      144,
+      18
+    ],
+    "tick_range_600605": "12 - 90",
+    "tick_range_179E4E": "12 - 90",
+    "tick_progression_600605": [
+      70,
+      -126
+    ],
+    "tick_progression_179E4E": [
+      -126
+    ],
+    "avg_tick_rate_600605": -28.0,
+    "avg_tick_rate_179E4E": -126.0,
+    "sync": "likely not synchronized (different tick rates)"
+  }
+}
