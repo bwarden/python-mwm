@@ -53,6 +53,7 @@ from .protocol import (
     raw_timings,
     tasmota_timings,
     timings_for_frame,
+    unbundle,
 )
 from .timings import decode_timings
 from .incant import (
@@ -104,6 +105,7 @@ __all__ = [
     "raw_timings",
     "tasmota_timings",
     "timings_for_frame",
+    "unbundle",
     "decode_timings",
     "CASCADE_DELAYS",
     "build_cascade",

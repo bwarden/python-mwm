@@ -206,6 +206,50 @@ def parse_frame_hex(text: str) -> list[bytes]:
     return frames
 
 
+def unbundle(value: str | int) -> list[bytes]:
+    """Split a value that is a whole A+B+A' bundle into its frames.
+
+    Tasmota's IRremoteESP8266 decoder (since commit 247bcdb3, "Decode every
+    complete frame of a capture into one result") can log a whole capture --
+    typically a command A, its status companion B, and a repeat A' -- as one
+    concatenated ``Data`` value. Each MWM 0x9x/0xFx leading byte declares its
+    own frame length (low nibble + 3), so the stream is walkable without side
+    information. Mirror of the TS port's optional ``MwmProtocol.unbundle``
+    (web/src/lib/protocol/mwm.ts): when the walk cannot land exactly on the
+    value end the value is a single bare frame and this returns it whole,
+    width-derived exactly like ``decodeRaw``'s fallback.
+    """
+    val = int(value, 0) if isinstance(value, str) else int(value)
+    if val < 0:
+        raise ValueError("MWM data must be non-negative")
+
+    hex_digits = format(val, "x")
+    padded = hex_digits.zfill(6) if len(hex_digits) < 6 else hex_digits
+    raw = bytes(
+        int(padded[i : i + 2], 16) for i in range(0, len(padded), 2)
+    )
+    frames: list[bytes] = []
+    pos = 0
+    while pos < len(raw):
+        header = raw[pos]
+        declared = (header & 0x0F) + 3
+        if pos + declared > len(raw):
+            break
+        high = header & 0xF0
+        if high not in (0x90, 0xF0):
+            break
+        frames.append(raw[pos : pos + declared])
+        pos += declared
+    # Single frame (or a non-landing walk): the width-derived frame is the
+    # same one the bare-value path builds -- inline that law here so a single
+    # frame never rings unbundle<->decode.  Byte count = max(3 bytes, the
+    # value's own width), i.e. the 24-bit protocol minimum.
+    if len(frames) < 2 or pos != len(raw):
+        n_bytes = max(3, (len(hex_digits) + 1) // 2)
+        return [val.to_bytes(n_bytes, "big")]
+    return frames
+
+
 # ---------------------------------------------------------------------------
 # Tasmota RawData parser (compact letter-coded timings)
 # ---------------------------------------------------------------------------

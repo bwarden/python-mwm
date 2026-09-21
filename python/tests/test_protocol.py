@@ -17,6 +17,7 @@ from mwm.protocol import (
     irsend_payload,
     parse_frame_hex,
     timings_for_frame,
+    unbundle,
 )
 
 
@@ -259,6 +260,53 @@ class SyncTests(unittest.TestCase):
         frame = build_frame([0x61])  # simple blue
         tick = decode_beacon_clock(frame)
         self.assertIsNone(tick)
+
+
+class UnbundleTests(unittest.TestCase):
+    def test_splits_an_a_b_a_bundle_into_frames(self):
+        # The rig-verified capture: A (9 bytes), B (15 bytes), A' (A again).
+        bundle = (
+            "0x96190B09088418014D"
+            "9C260CD5636B58EE4803D13C070685"
+            "96190B09088418014D"
+        )
+        self.assertEqual(unbundle(bundle), [
+            bytes.fromhex("96190B09088418014D"),
+            bytes.fromhex("9C260CD5636B58EE4803D13C070685"),
+            bytes.fromhex("96190B09088418014D"),
+        ])
+
+    def test_accepts_int_value(self):
+        bundle = int(
+            "0x"
+            "96190B09088418014D"
+            "9C260CD5636B58EE4803D13C070685"
+            "96190B09088418014D",
+            16,
+        )
+        frames = unbundle(bundle)
+        self.assertEqual(len(frames), 3)
+
+    def test_lone_declared_frame_is_not_a_bundle(self):
+        # A single 0x9x frame has one element, so it stays width-derived.
+        self.assertEqual(
+            unbundle("0x96190B09088418014D"),
+            [bytes.fromhex("96190B09088418014D")],
+        )
+
+    def test_two_byte_value_pads_to_the_24bit_minimum(self):
+        self.assertEqual(unbundle("0x5508"), [bytes.fromhex("005508")])
+
+    def test_non_landing_walk_falls_back_to_whole_value(self):
+        # 0x55 0xAA show opens are not length-declared: the walk never starts.
+        self.assertEqual(
+            unbundle("0x5508089C260CD5"),
+            [bytes.fromhex("5508089C260CD5")],
+        )
+
+    def test_negative_rejected(self):
+        with self.assertRaises(ValueError):
+            unbundle("-1")
 
 
 if __name__ == "__main__":
