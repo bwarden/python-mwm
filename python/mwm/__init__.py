@@ -22,6 +22,8 @@ Sources of truth (all in this repo):
                                       and end-bit-recovery logic.
 """
 
+__version__ = "0.1.0"
+
 from .palette import (
     EAR_STATE_OFF,
     PALETTE,
@@ -84,6 +86,7 @@ from .decode import (
 )
 
 __all__ = [
+    "__version__",
     "CARRIER_HZ",
     "FOOTER_GAP_US",
     "TICK_US",
