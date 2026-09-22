@@ -24,7 +24,7 @@ Each output line is one JSON object:
 
 NOTES / CAVEATS
 ---------------
-- Requires the mosquitto_sub CLI on PATH.
+- Requires the paho-mqtt package.
 - Requires MQTT credentials in ~/.config/ir-remote-tools/mqtt.json (never
   committed).
 - The "receiver" field records which Tasmota box heard the beacon.  Two
@@ -124,22 +124,17 @@ def _handle_line(line: str, receiver_id: str, out: Path) -> None:
 def _stream(mqtt: dict, receiver_id: str, out: Path) -> None:
     """Subscribe to one receiver indefinitely, logging beacons.
 
-    mosquitto_sub -C 1 returns after one message; loop so we stay
-    subscribed.  A reconnect timeout simply retries.
+    Waits (with a generous timeout) on the shared persistent client for
+    each next message; a dropped connection simply retries.
     """
     topic = f"tele/tasmota/{receiver_id}/RESULT"
-    import subprocess
+    from _mqtt import subscribe_lines
 
-    cmd = ["mosquitto_sub", "-h", mqtt["broker"], "-p", str(mqtt["port"]),
-           "-u", mqtt["username"], "-P", mqtt["password"],
-           "-t", topic, "-C", "1"]
     while True:
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True,
-                                    timeout=600)
-            for line in result.stdout.splitlines():
+            for line in subscribe_lines(mqtt, topic, timeout=600):
                 _handle_line(line, receiver_id, out)
-        except (TimeoutError, subprocess.TimeoutExpired, OSError):
+        except (TimeoutError, OSError, RuntimeError):
             time.sleep(1)
 
 

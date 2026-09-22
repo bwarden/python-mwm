@@ -14,7 +14,7 @@ later analysis.
 This is the "confirm the catalog on real hardware" tool; tools/
 analyze_log.py turns the resulting JSON log into a decode report.
 
-Requires: mosquitto_pub on PATH, MQTT config at
+Requires: the paho-mqtt package, MQTT config at
 ~/.config/ir-remote-tools/mqtt.json, the _mwm library (shared bootstrap).
 
 Usage::

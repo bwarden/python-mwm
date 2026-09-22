@@ -14,18 +14,18 @@ Record format (JSONL, one object per line)::
 ``raw`` is the exact broker line (topic + JSON payload) so downstream
 tools can re-decode with the shared MWM library.
 
-Hangs are handled by a bounded subscription: ``mosquitto_sub -C 1 -W 30``
-starts a fresh one-message subscription each loop, so a dead/quiescent
-broker does not wedge the recorder forever.  Delivery is
-software-paced (Tasmota clumps/reorders), which the comparison tool must
-treat as an artifact, not hardware timing.
+Hangs are handled by a bounded wait: each loop subscribes to the topic
+and waits (default 30 s) for the next message via the shared persistent
+client, so a dead/quiescent broker does not wedge the recorder forever.
+Delivery is software-paced (Tasmota clumps/reorders), which the
+comparison tool must treat as an artifact, not hardware timing.
 
 Usage::
 
     python3 tools/capture_receive.py --out analysis/replay/rx-20260909.jsonl
     python3 tools/capture_receive.py --topic tele/tasmota/179E4E/RESULT
 
-Requires: mosquitto_sub on PATH and the MQTT config at
+Requires: the paho-mqtt package and the MQTT config at
 ~/.config/ir-remote-tools/mqtt.json (or --mqtt-json).
 """
 
@@ -34,31 +34,23 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
-import subprocess
+
 import sys
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _mqtt import load_mqtt  # noqa: E402
+from _mqtt import load_mqtt, subscribe_lines  # noqa: E402
 
 
 def _subscribe(mqtt: dict, topic: str, timeout: int = 30) -> list[str]:
-    """One bounded one-message subscription; returns the raw lines seen."""
-    cmd = ["mosquitto_sub", "-h", mqtt["broker"], "-p", str(mqtt["port"]),
-           "-u", mqtt["username"], "-P", mqtt["password"],
-           "-t", topic, "-C", "1", "-W", str(timeout)]
+    """Wait up to ``timeout`` for one subscription round; return the lines."""
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True,
-                                timeout=timeout + 5)
-    except (TimeoutError, subprocess.TimeoutExpired, OSError) as exc:
+        return subscribe_lines(mqtt, topic, timeout=timeout)
+    except (OSError, RuntimeError) as exc:
         print(f"  capture: subscription failed ({exc}); retrying",
               file=sys.stderr)
         return []
-    if result.returncode and result.stderr.strip():
-        print(f"  capture: mosquitto_sub: {result.stderr.strip()}",
-              file=sys.stderr)
-    return result.stdout.splitlines()
 
 
 def main() -> None:

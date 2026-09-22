@@ -18,7 +18,7 @@ Keep those split tools for day-to-day use; this one stays for the combined
 capture+analyze+experiment flow and is kept because it demonstrates the
 per-beacon clock/effect extraction (BeaconCapture) in one place.
 
-Requires: mosquitto_sub / mosquitto_pub on PATH, MQTT config at
+Requires: the paho-mqtt package, MQTT config at
 ~/.config/ir-remote-tools/mqtt.json, and the _mwm library (shared bootstrap).
 
 Usage::

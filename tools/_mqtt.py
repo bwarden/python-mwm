@@ -17,26 +17,33 @@ live OUTSIDE this repo, in ``~/.config/ir-remote-tools/mqtt.json``
       ...
     }
 
-This module wraps the mosquitto CLIs (mosquitto_pub / mosquitto_sub) so the
-tools don't each re-implement credential loading and subprocess calls.  The
-mosquitto clients must be installed and on PATH.
+This module wraps paho-mqtt (a persistent MQTT client with a background
+loop thread) so the tools share one connection and never spawn a
+``mosquitto_pub``/``mosquitto_sub`` process.  Spawning a fresh CLI per
+publish was the old design and had two problems that matter to this rig:
+every frame paid a new TCP connect + MQTT handshake (a transient stall
+delayed a single countdown member by ~1 s, which the ears hear as a
+stutter), and the broker password sat in the subprocess argv for anyone
+reading ``/proc``.  A persistent client connects once, resolves DNS once,
+and sends each publish on the already-open socket; paho reconnects with
+backoff when the broker drops us.
 
 Use at the top of a tool::
 
-    from _mqtt import load_mqtt, send_frame, send_payload, capture_frames
+    from _mqtt import load_mqtt, send_frame, send_payload, capture_lines
 
-For a single-shot send you typically want send_frame(); for live monitoring
-(of beacons / responses) you want capture_frames() in a thread.
+Requires the ``paho-mqtt`` package.
 """
 
 from __future__ import annotations
 
 import json
-import socket
-import subprocess
-import sys
+import threading
 import time
+from collections import deque
 from pathlib import Path
+
+import paho.mqtt.client as mqttc
 
 # ---------------------------------------------------------------------------
 # Credential / config loading
@@ -44,18 +51,14 @@ from pathlib import Path
 
 _DEFAULT_MQTT = Path.home() / ".config" / "ir-remote-tools" / "mqtt.json"
 
-# mosquitto_pub / broker are unreliable: name resolution ("Lookup error.")
-# and TCP connects can transiently fail, so a send is retried a few times
-# before we give up.  Each retry also covers a lost keepalive/conn refused.
+# A publish is retried briefly if the connection is still coming up or a
+# transient broker blip dropped us (paho reconnects in the loop thread).
 _RETRIES = 3
 _RETRY_DELAY = 0.25
 
-# Resolve the broker host ONCE and reuse the IP for every send.  The name
-# resolver here is flaky (systemd-resolved intermittently times out /
-# SERVFAILs, taking seconds), which made per-send `mosquitto_pub` lookups
-# both slow and failure-prone.  Pinning the IP after one successful lookup
-# makes sends ~10ms and deterministic.
-_IP_CACHE: dict[str, str] = {}
+# capture_lines / subscribe_lines stop draining a topic's buffer after this
+# many messages, mirroring mosquitto_sub's old -C 500 bound.
+_MAX_CAPTURE = 500
 
 
 def load_mqtt(path: str | Path | None = None) -> dict:
@@ -71,56 +74,89 @@ def load_mqtt(path: str | Path | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Sending (mosquitto_pub -> Tasmota IRsend)
+# Persistent client (one connection per broker, shared by publish + receive)
 # ---------------------------------------------------------------------------
 
-def _broker_addr(mqtt: dict) -> str:
-    """Return broker host/IP, resolving the name once and caching it.
+class _MQTT:
+    """One paho client plus a per-topic buffer of received lines."""
 
-    Prefer a numeric IP so ``mosquitto_pub`` never re-runs the flaky resolver.
-    Falls back to the configured hostname if resolution fails right now.
-    """
-    host = mqtt["broker"]
-    cached = _IP_CACHE.get(host)
-    if cached:
-        return cached
-    try:
-        ip = socket.gethostbyname(host)
-    except OSError:
-        raise RuntimeError(
-            f"cannot resolve MQTT broker '{host}' -- check DNS/network")
-    _IP_CACHE[host] = ip
-    return ip
+    def __init__(self, config: dict):
+        self.config = config
+        self.client = mqttc.Client()
+        if config.get("username"):
+            self.client.username_pw_set(config["username"],
+                                        config.get("password") or None)
+        self.client.reconnect_delay_set(min_delay=1, max_delay=5)
+        self.client.on_message = self._on_message
+        self._buf: dict[str, deque[str]] = {}
+        self._lock = threading.Lock()
+        self.client.connect(config["broker"], config["port"], keepalive=60)
+        self.client.loop_start()
 
+    def _on_message(self, _client, _userdata, msg) -> None:
+        line = msg.payload.decode("utf-8", "replace")
+        with self._lock:
+            self._buf.setdefault(msg.topic, deque()).append(line)
+
+    def drain(self, topic: str, limit: int = _MAX_CAPTURE) -> list[str]:
+        """Take up to ``limit`` buffered lines for ``topic`` (FIFO)."""
+        with self._lock:
+            d = self._buf.get(topic)
+            if not d:
+                return []
+            out = []
+            while d and len(out) < limit:
+                out.append(d.popleft())
+            return out
+
+
+_CLIENTS: dict[tuple[str, int, str], _MQTT] = {}
+
+
+def _client(mqtt: dict) -> _MQTT:
+    """Return the cached persistent client for this broker/credentials."""
+    key = (mqtt["broker"], mqtt["port"], str(mqtt.get("username")))
+    cli = _CLIENTS.get(key)
+    if cli is None:
+        cli = _MQTT(mqtt)
+        _CLIENTS[key] = cli
+    return cli
+
+
+# ---------------------------------------------------------------------------
+# Sending (persistent client -> Tasmota IRsend)
+# ---------------------------------------------------------------------------
 
 def _pub(mqtt: dict, payload: str) -> None:
     """Publish one raw payload string to the transmit topic.
 
-    The broker host is resolved once and the IP reused (see _broker_addr);
-    a transient TCP/connect failure after that is retried, and on final
-    failure a clean message is raised rather than a raw subprocess traceback.
+    Runs on the persistent connection, so a send is a write to an open
+    socket rather than a fresh process + TCP handshake.  If the publish
+    does not make the wire quickly (connection still coming up, or a
+    transient blip), it is retried with a short delay.
     """
     if len(payload) > 800:
         # Tasmota IRsend caps raw payloads well under this; catching an
         # over-long payload early gives a cleaner error than a cryptic one.
         raise ValueError(
             f"payload too long for Tasmota IRsend ({len(payload)} chars)")
-    broker = _broker_addr(mqtt)
-    cmd = ["mosquitto_pub", "-h", broker, "-p", str(mqtt["port"]),
-           "-u", mqtt["username"], "-P", mqtt["password"],
-           "-t", mqtt["transmit"], "-m", payload]
+    cli = _client(mqtt)
+    topic = mqtt["transmit"]
     for attempt in range(1, _RETRIES + 1):
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode == 0:
-            return
-        err = (res.stderr or "").strip()
+        info = cli.client.publish(topic, payload, qos=0)
+        if info.rc == mqttc.MQTT_ERR_SUCCESS:
+            try:
+                info.wait_for_publish(5.0)
+            except (ValueError, RuntimeError):
+                pass
+            if info.is_published():
+                return
         if attempt < _RETRIES:
             time.sleep(_RETRY_DELAY)
             continue
         raise RuntimeError(
-            f"mosquitto_pub failed (attempt {attempt}/{_RETRIES}, rc "
-            f"{res.returncode}) to {mqtt['broker']} ({broker}):{mqtt['port']}"
-            + (f": {err}" if err else ""))
+            f"MQTT publish failed (attempt {attempt}/{_RETRIES}) to "
+            f"{mqtt['broker']}:{mqtt['port']} topic '{topic}'")
 
 
 def send_payload(mqtt: dict, payload: str, repeat: int = 1,
@@ -151,27 +187,51 @@ def send_frame(mqtt: dict, mwm, frame: bytes, repeat: int = 1,
 
 
 # ---------------------------------------------------------------------------
-# Receiving (mosquitto_sub -> Tasmota RESULT)
+# Receiving (persistent subscription -> Tasmota RESULT)
 # ---------------------------------------------------------------------------
 
 def capture_lines(mqtt: dict, receiver_id: str, duration: float) -> list[str]:
     """Subscribe to one receiver's RESULT topic for ``duration`` seconds.
 
     Returns the raw JSON strings (each an ``IrReceived`` message) delivered
-    during the window.  NOTE: mosquitto_sub returns whatever the broker
-    delivers in the window; Tasmota's reporting is software-paced and can
+    during the window.  NOTE: Tasmota's reporting is software-paced and can
     clump/reorder beacons, so ordering is not trustworthy.
     """
     topic = f"tele/tasmota/{receiver_id}/RESULT"
-    cmd = ["mosquitto_sub", "-h", mqtt["broker"], "-p", str(mqtt["port"]),
-           "-u", mqtt["username"], "-P", mqtt["password"],
-           "-t", topic, "-W", str(int(duration) + 2), "-C", "500"]
+    cli = _client(mqtt)
+    cli.client.subscribe(topic, qos=0)
+    lines: list[str] = []
+    deadline = time.monotonic() + duration
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True,
-                                timeout=duration + 6)
-        return result.stdout.splitlines()
-    except (TimeoutError, subprocess.TimeoutExpired, OSError):
-        return []
+        while time.monotonic() < deadline and len(lines) < _MAX_CAPTURE:
+            lines.extend(cli.drain(topic, _MAX_CAPTURE - len(lines)))
+            time.sleep(0.05)
+    finally:
+        cli.client.unsubscribe(topic)
+    return lines
+
+
+def subscribe_lines(mqtt: dict, topic: str, timeout: float = 30.0) -> list[str]:
+    """Subscribe to ``topic``; block up to ``timeout`` for at least one line.
+
+    Returns whatever arrived during the wait (empty on timeout).  Used by
+    long-running listener loops (``capture_receive`` / ``-stream`` callers)
+    that want the anchored "wait for the next message" behaviour of the old
+    ``mosquitto_sub -C 1 -W <timeout>`` with a persistent client.
+    """
+    cli = _client(mqtt)
+    cli.client.subscribe(topic, qos=0)
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            lines = cli.drain(topic)
+            if lines:
+                return lines
+            if time.monotonic() >= deadline:
+                return []
+            time.sleep(0.05)
+    finally:
+        cli.client.unsubscribe(topic)
 
 
 def decode_frame_lines(mwm, lines: list[str]) -> list[bytes]:

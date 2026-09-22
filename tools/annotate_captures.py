@@ -22,9 +22,7 @@ Two modes -- the same annotation loop, different input:
   python3 tools/annotate_captures.py --rcvs 600605,179E4E
 
   # piped / replayed: annotate a recorded RESULT JSONL feed instead
-  mosquitto_sub -h broker -p 1883 -u ai -P '..' \
-      -t tele/tasmota/600605/RESULT |
-      python3 tools/annotate_captures.py -
+  python3 tools/annotate_captures.py /tmp/result_session.jsonl --all
 
   python3 tools/annotate_captures.py /tmp/result_session.jsonl --all
 
@@ -74,7 +72,7 @@ NOTES / CAVEATS
 - "novel" flags decodes the library does NOT yet understand (undocumented
   wand (gg,kk) pairs, unknown opcodes, invalid frames) so the observer can
   concentrate on the unknowns that move the state of knowledge.
-- Requires the mosquitto CLIs on PATH and MQTT credentials in
+- Requires the paho-mqtt package and MQTT credentials in
   ~/.config/ir-remote-tools/mqtt.json (never committed).  Run ONE live
   instance per topic, or rely on the piped form.
 - Tasmota MQTT reporting is software-paced: arrival order/timestamps are
@@ -591,28 +589,23 @@ def run_annotations(mwm, lines, receiver: str, out_fh, include_beacons,
 
 
 # ---------------------------------------------------------------------------
-# Live MQTT subscription (mosquitto_sub -C 1 loop, pushed to a queue)
+# Live MQTT subscription (shared persistent client, pushed to a queue)
 # ---------------------------------------------------------------------------
 
 def _stream(mqtt: dict, receiver_id: str, lines_q: "queue.Queue[str | None]") -> None:
     """Subscribe to one receiver indefinitely, pushing RESULT lines.
 
-    mosquitto_sub -C 1 returns after one message, so loop to stay
-    subscribed; a dropped connection simply retries after a second.
+    Waits (with a generous timeout) on the shared persistent client for
+    each next message; a dropped connection simply retries after a second.
     """
-    import subprocess
+    from _mqtt import subscribe_lines
 
     topic = f"tele/tasmota/{receiver_id}/RESULT"
-    cmd = ["mosquitto_sub", "-h", mqtt["broker"], "-p", str(mqtt["port"]),
-           "-u", mqtt["username"], "-P", mqtt["password"],
-           "-t", topic, "-C", "1"]
     while True:
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True,
-                                    timeout=600)
-            for line in result.stdout.splitlines():
+            for line in subscribe_lines(mqtt, topic, timeout=600):
                 lines_q.put((receiver_id, line))
-        except (TimeoutError, subprocess.TimeoutExpired, OSError):
+        except (TimeoutError, OSError, RuntimeError):
             time.sleep(1)
 
 

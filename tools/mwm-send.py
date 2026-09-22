@@ -25,7 +25,7 @@ Optional --monitor: while you send, it subscribes to a receiver for a few
 seconds and prints every beacon/frame the ears emit back, so you can see
 the effect take hold or the ear re-beacon with its new state.
 
-Requires: mosquitto_pub/mosquitto_sub on PATH, MQTT config at
+Requires: the paho-mqtt package, MQTT config at
 ~/.config/ir-remote-tools/mqtt.json, and the _mwm library (shared bootstrap).
 
 Usage::
@@ -96,6 +96,7 @@ _DEFAULT_MQTT = Path.home() / ".config" / "ir-remote-tools" / "mqtt.json"
 
 EAR_OFF = 0x60
 LEFT_ONLY_BASE = 0x68
+GO = 0x20                                   # immediate go copy (no countdown)
 
 
 # ---------------------------------------------------------------------------
@@ -256,11 +257,14 @@ def _cascade_content(argstr: str) -> list[int]:
     spec, and the authoritative validity check for the lead delay byte.
 
     The delay byte is content[0] in every delay-led show phrase (fade's
-    ``F? 48 85 58 tt``, strobe's ``F? 24 67 58 tt 48 84``, ...) -- it is
-    BOTH the cue's lead: the ear that hears the frame fires at receipt +
-    delay, so the countdown member set derives from it.  Accepts
+    ``F? 48 85 58 tt``, strobe's ``F? 24 67 58 tt 48 84``, ...).  A cue
+    carries either the immediate ``20`` go-variant -- the phrase that
+    executes at the cue's ``@ms``, with the countdown generated over the
+    canonical chain -- or a ``F?`` delay-led phrase whose countdown derives
+    from the lead: the ear that hears the frame fires at receipt + delay,
+    so the countdown member set derives from it.  Accepts
     ``cue fade ...``, ``cue incant fade ...``, and a raw ``cue hex <bytes>``
-    form whose first byte is the delay byte -- the corpus phrase minus its
+    form whose first byte is a delay byte -- the corpus phrase minus its
     auto-derived 9X head (e.g. ``cue hex F1 24 0D 48 82 D0 0E FF`` reproduces
     the verified 97/9C-style hard-transition chains; the countdown derives
     its head from the content length, so ``F1 24 .. `` also matches ``24 ..``
@@ -287,14 +291,14 @@ def _cascade_content(argstr: str) -> list[int]:
 def _cascade_tail(argstr: str) -> list[int]:
     """The cue phrase WITHOUT its leading delay byte (see
     ``_cascade_content``); the countdown rebuilds the chain from the lead
-    byte's own set, or ``build_cascade(tail)`` for the full 14-member
-    corpus default."""
+    byte's own set, or ``build_cascade(tail)`` for the full canonical
+    corpus chain (FD..F1, then the immediate 20)."""
     return _cascade_content(argstr)[1:]
 
 
 def _cascade(cmd: str) -> list[bytes]:
     """Expand a ``cue <spec>``/``cascade <spec>`` menu line over the full
-    countdown chain (FD..F1 then the immediate 20 go copy)."""
+    canonical countdown chain (FD..F1 then the immediate 20 go copy)."""
     return list(build_cascade(_cascade_tail(cmd)))
 
 
@@ -355,21 +359,27 @@ def _parse_show_script(text: str, cascade_ms: float | None = None,
         simple left blue            one beat per line, in menu grammar
         cue fade cycle=0x16         a countdown cue: phrase + the moment its
                                     20 go copy lands ('cascade' also accepted)
-        cue hex F4 24 D1 ..         a raw captured phrase; the countdown
-                                    derives from its lead delay byte
+        cue hex 20 24 D1 ..         a cue carrying the IMMEDIATE 20 go-variant
+                                    of the phrase; the countdown is generated
+                                    here and pre-rolls before this @ms
 
-    A ``cue`` beat auto-generates its countdown: member delays run from the
-    phrase's lead delay byte (FD for the fade/strobe corpus phrases) down to
-    the immediate ``20`` go copy, and each member is scheduled to pre-roll
-    BEFORE the beat's ``@ms`` at ``@ms - (d & 0x0F)*100`` -- the ``F?``
-    countdown bytes delay the ear by their LOW NIBBLE x 100 ms (F1=100 ms
-    .. FF=1500 ms), so a listener that hears ANY member still lands exactly
-    on the master moment the ``20`` fires, whether the countdown was
-    captured replete or cut short.  The played member order puts the go
+    A ``cue`` beat auto-generates its countdown.  What the line carries is
+    the phrase that executes AT ``@ms``: a ``20``-led cue (what the
+    generator emits) means the immediate go-variant fires there and the
+    countdown is generated over the full canonical ``CASCADE_DELAYS``
+    chain; a ``F?``-led cue (legacy / hand-written) derives its own
+    smaller member set from the lead.  Either way, member delays run from
+    the countdown start down to the immediate ``20`` go copy, and each
+    member is scheduled to pre-roll BEFORE the beat's ``@ms`` at
+    ``@ms - (d & 0x0F)*100`` -- the ``F?`` countdown bytes delay the ear by
+    their LOW NIBBLE x 100 ms (F1=100 ms .. FF=1500 ms), so a listener
+    that hears ANY member still lands exactly on the master moment the
+    ``20`` fires, whether the countdown was captured replete or cut short.
+    The played member order puts the go
     copy LAST (a late F1 would otherwise re-arm the ears a tenth of a
     second after the cue).  A
     ``members`` clause (``cue hex <lead> <tail> members <other delays,
-    incl. 20>``) overrides the lead-derived set with an EXACT legacy
+    incl. 20>``) overrides the generated set with an EXACT legacy
     capture set when a hand-written script needs byte-for-byte
     reproduction.  ``--cascade-ms`` opts back into uniform pacing from the
     ``@ms`` target, and ``--cascade-full`` forces the 14-member FD-led
@@ -400,9 +410,14 @@ def _parse_show_script(text: str, cascade_ms: float | None = None,
             lead = content[0]
             if members is not None:
                 delays = [lead, *members]
-            elif cascade_full:
+            elif cascade_full or lead == GO:
+                # A 20-led cue (what gen_show_script emits) carries ONLY the
+                # immediate go-variant that fires at @ms; the countdown is
+                # generated here, over the full canonical capture chain.
                 delays = list(CASCADE_DELAYS)
             else:
+                # A legacy/hand-written delay-led cue: derive the countdown
+                # from its own lead byte (F?..F1, then the go copy).
                 delays = list(range(lead, 0xF0, -1)) + [0x20]
             ordered = sorted(delays, reverse=True)   # 20 go copy transmits last
             frames = [build_frame([d, *tail]) for d in ordered]
@@ -755,17 +770,18 @@ def _menu(mqtt: dict, args: argparse.Namespace) -> None:
             print("  (unknown command; try 'help')")
             continue
 
+        reps = _cue_repeat(frames, args)
         payloads = [irsend_payload(f) for f in frames]
-        print(f"  sending {len(frames)} frame(s), {repeat}x:")
+        print(f"  sending {len(frames)} frame(s), {reps}x:")
         for f, p in zip(frames, payloads):
             print(f"    {f.hex().upper():24s} -> {_frame_desc(f)}")
         # frames in one logical pass back-to-back (footers space them),
-        # repeated `repeat`  times.
+        # repeated `reps` times.
         try:
-            for _ in range(repeat):
+            for _ in range(reps):
                 for p in payloads:
                     send_payload(mqtt, p)
-                if delay > 0:
+                if reps > 1 and delay > 0:
                     time.sleep(delay)
         except RuntimeError as exc:
             print(f"  send failed: {exc}")
@@ -811,12 +827,13 @@ cue <incant args>               expand an incantation over the full
   sequence <file>                  run a show-script file (@ms offsets set
                                    beat times; 'cue' lines are countdown
                                    cues whose members pre-roll BEFORE the
-                                   beat -- the 20 go copy fires at @ms, and
-                                   every ear that hears any member lands
-                                   there too; --cascade-ms paces from @ms,
-                                   --cascade-full forces the 14-member FD
-                                   chain). See the _parse_show_script
-                                   docstring for the format.
+                                   beat -- the 20 go copy fires at @ms, mwm-send
+                                   generates the countdown itself for a
+                                   go-variant (20-led) cue; --cascade-ms paces
+                                   from @ms, --cascade-full forces the
+                                   14-member FD chain for legacy F?-led cues).
+                                   See the _parse_show_script docstring for
+                                   the format.
   hex <hex>                     arbitrary raw frame(s), '+'-joined; a missing
                                  trailing CRC-8 byte is auto-computed/appended
 examples:
@@ -994,14 +1011,15 @@ def _one_shot(mqtt: dict, args: argparse.Namespace) -> None:
         print(f"unknown command '{verb}'", file=sys.stderr)
         sys.exit(2)
     payloads = [irsend_payload(f) for f in frames]
-    print(f"sending {len(frames)} frame(s), {args.repeat}x:")
+    reps = _cue_repeat(frames, args)
+    print(f"sending {len(frames)} frame(s), {reps}x:")
     for f in frames:
         print(f"  {f.hex().upper():24s} -> {_frame_desc(f)}")
     try:
-        for _ in range(args.repeat):
+        for _ in range(reps):
             for p in payloads:
                 send_payload(mqtt, p)
-            if args.repeat_delay > 0:
+            if reps > 1 and args.repeat_delay > 0:
                 time.sleep(args.repeat_delay)
     except RuntimeError as exc:
         print(f"send failed: {exc}", file=sys.stderr)
@@ -1022,13 +1040,31 @@ def _repeat_default(verb: str | None) -> int:
     return 1 if verb == "sequence" else 2
 
 
+def _cue_repeat(frames: list[bytes], args: argparse.Namespace) -> int:
+    """How many copies of this command's frames to send.
+
+    A countdown cue already carries its own FEC: every member is a
+    differently-timed copy of the same state change, so re-airing the
+    chain transmits the same countdown values twice for no extra
+    redundancy.  ``cue``/``cascade`` commands therefore play the chain
+    once by default.  Lone classic frames keep the 2x repeat, and an
+    explicit ``--repeat`` still wins.
+    """
+    if (not args.repeat_explicit and len(frames) > 1
+            and cue_class(frames[0]) == "PRE_BUFFER_EVENT"):
+        return 1
+    return args.repeat
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="MWM show-command sender")
     p.add_argument("--mqtt-json", default=str(_DEFAULT_MQTT),
                    help="MQTT config JSON path")
     p.add_argument("--repeat", type=int, default=None,
                    help="times to send each frame (default 2; a `sequence` "
-                        "show runs a single pass unless --repeat is set)")
+                        "show runs a single pass unless --repeat is set, and "
+                        "a `cue`/`cascade` countdown also sends its chain "
+                        "once -- the members already are the FEC)")
     p.add_argument("--repeat-delay", type=float, default=0.3,
                    help="delay between repeats (default 0.3)")
     p.add_argument("--cascade-ms", type=float, default=None,
@@ -1039,8 +1075,10 @@ def main() -> None:
                         "uniform pacing from @ms is the older airing style)")
     p.add_argument("--cascade-full", action="store_true",
                    help="expand a cue over the full 14-member capture chain "
-                        "(FD..F1 then 20) regardless of the phrase's lead "
-                        "delay byte")
+                        "(FD..F1 then 20) -- already the default for a "
+                        "20-led cue (the generator's go-variant form) and "
+                        "for the menu 'cue' verb; this forces it even for "
+                        "a legacy F?-led cue")
     p.add_argument("--min-gap-ms", type=float, default=_MIN_GAP_MS,
                    help="minimum spacing enforced between consecutive "
                         "publishes so same-tick clusters do not fire as one "
@@ -1067,6 +1105,7 @@ def main() -> None:
     p.add_argument("verb", nargs="?", help="command verb (interactive if omitted)")
     p.add_argument("args", nargs="*", help="command arguments")
     args = p.parse_args()
+    args.repeat_explicit = args.repeat is not None
     if args.repeat is None:
         args.repeat = _repeat_default(args.verb)
 
