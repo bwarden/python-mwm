@@ -824,7 +824,7 @@ cue <incant args>               expand an incantation over the full
                                  copy) -- the park's delay led cues
                                  ('cascade' is an accepted older alias)
                                  e.g. cue fade cycle=0x16
-  sequence <file>                  run a show-script file (@ms offsets set
+  sequence [<file>]                run a show-script file (@ms offsets set
                                    beat times; 'cue' lines are countdown
                                    cues whose members pre-roll BEFORE the
                                    beat -- the 20 go copy fires at @ms, mwm-send
@@ -833,7 +833,8 @@ cue <incant args>               expand an incantation over the full
                                    from @ms, --cascade-full forces the
                                    14-member FD chain for legacy F?-led cues).
                                    See the _parse_show_script docstring for
-                                   the format.
+                                   the format.  Omit the file to pipe the
+                                   script on stdin.
   hex <hex>                     arbitrary raw frame(s), '+'-joined; a missing
                                  trailing CRC-8 byte is auto-computed/appended
 examples:
@@ -859,6 +860,7 @@ examples:
   incant stop
   cue fade cycle=0x16
   sequence show.msh
+  ... | mwm-send sequence    # or pipe the script on stdin
 """.rstrip())
 
 
@@ -988,8 +990,11 @@ def _build_frames(cmd: str) -> list[bytes] | None:
 def _one_shot(mqtt: dict, args: argparse.Namespace) -> None:
     if args.verb == "sequence":
         try:
-            beats = _parse_show_script(Path(args.args[0]).read_text(),
-                                       args.cascade_ms, args.cascade_full)
+            text = (sys.stdin.read() if not args.args
+                    or args.args[0] == "-"
+                    else Path(args.args[0]).read_text())
+            beats = _parse_show_script(text, args.cascade_ms,
+                                       args.cascade_full)
         except (ValueError, OSError) as exc:
             print(f"sequence: {exc}", file=sys.stderr)
             sys.exit(2)
