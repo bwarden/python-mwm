@@ -58,8 +58,13 @@ Real MWM traffic used to validate the protocol reference in `../docs/mwm-show-pr
 
   - park-cascade-demo.msh and the generated park shows — `sequence`
     show-scripts (`.msh` format: `@ms` offset lines + one beat per line,
-    `#` comments; `cascade` lines expand to a sparse countdown chain, one
-    member every `--cascade-ms` -- default 400 ms, ~2-3 sends/s).
+    `#` comments).  Generated cue lines carry the captured run's immediate
+    `20` go-variant (`cue hex 20 <tail>`); `mwm-send` generates the
+    countdown itself over the canonical `FD..F1,20` chain, pre-rolled
+    backward from the cue's `@ms`, so the 20 fires exactly at `@ms` (a
+    hand-written `cascade` line with a `F?` lead still expands to its own
+    lead-derived set, one member every `--cascade-ms` -- default 400 ms,
+    ~2-3 sends/s).
     park-cascade-demo is hand-curated and starts its fade at `@0` (the
     genuine ~27 s idle gap after the fade is compressed to ~3 s).  The
     generated demos cover every park capture in `analysis/park/frames.tsv`,

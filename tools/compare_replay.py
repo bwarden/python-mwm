@@ -10,7 +10,7 @@ The overnight replay validation in three views:
    idle colour/command smear) and how many capture countdown runs fold.
 
 2. **Replay** (script expectation -> receiver log): parses the ``.msh``
-   exactly as ``mwm-send`` would (incl. lead-derived countdown expansion and
+   exactly as ``mwm-send`` would (incl. cue countdown generation and
    the min-gap send clamp) and aligns the receiver's decoded frames
    against that expectation, member by member.  Reports missing/unexpected
    frames, per-cascade member cadence (back-to-back at the min-gap floor
@@ -289,7 +289,8 @@ def main() -> None:
         out(f"  skipped: {cs['shown_55aa']}x 55aa heartbeat, "
             f"{cs['shown_beacon']}x beacon, {cs['idle']}x idle colour/command")
         out(f"  countdown runs folded: {cs['folds']} -> one cue each "
-            f"(countdown derived from the lead byte, down to the 20 go copy)")
+            f"(cue carries the 20 go-variant; mwm-send generates the "
+            f"countdown, pre-rolled from the cue's @ms)")
         ok, why = conversion_check(conv_rows, args.script)
         out(f"  script body == generator rule: "
             f"{'PASS' if ok else 'FAIL -- ' + why}")

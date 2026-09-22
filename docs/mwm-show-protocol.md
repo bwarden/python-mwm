@@ -227,17 +227,24 @@ transmission), that member is dropped -- the worst case is a cue that
 airs its `20` alone, on time.  An explicit `--cascade-ms` opts into
 uniform pacing FROM `@ms` (a handful of sends per second), and
 `--cascade-full` forces the full 14-member `FD..F1,20` chain regardless
-of the lead byte.
+of the lead byte.  A cue may also lead with the immediate `20` go copy
+directly (`cue hex 20 <tail>`): `mwm-send` treats that as the go-variant
+and generates the same canonical `FD..F1,20` countdown pre-rolled
+backward from `@ms`, so the phrase never has to encode a cadence.  This
+is the form `gen_show_script` emits.
 
-A cue line may carry the captured chain's exact member set as a
-`members` clause -- `cue hex F4 D0 42 08 members F3 F2 F1 20` -- and
-`mwm-send` then rebuilds those members byte-for-byte (each a `build_frame`
-of its own delay byte + the phrase tail), preserving repeats and the
-lead's own value, rather than any canonical sparse/full set.  This is what
-`gen_show_script` emits, so a show replays the capture's countdown cadence
-exactly; `--dump` prints the resulting transmit stream (`@ms HEX` per
-frame, end-of-show reset included unless `--no-end-reset`) for offline
-diffing against the capture (see `tools/compare_capture.py`).
+A cue line's phrase is the delay-led tail; the countdown member set is
+derived, never stored.  Hand-written scripts may still pin the captured
+set explicitly as a `members` clause -- `cue hex F4 D0 42 08 members F3
+F2 F1 20` -- and `mwm-send` rebuilds those members byte-for-byte (each a
+`build_frame` of its own delay byte + the phrase tail), preserving repeats
+and the lead's own value.  Generated scripts instead carry the compact
+`20` go-variant above, so a show replays the capture's GO moments exactly
+while the countdown cadence comes from one canonical source; the `#`
+collapsed-cue comment records the captured countdown's start byte and go
+tick for inspection.  `--dump` prints the resulting transmit stream
+(`@ms HEX` per frame, end-of-show reset included unless `--no-end-reset`)
+for offline diffing against the capture (see `tools/compare_capture.py`).
 
 Runner pacing guards: consecutive
 publishes never land closer than `--min-gap-ms` (default 30 ms), so beats
@@ -249,8 +256,9 @@ defaults to a FAITHFUL timeline: real wall-clock ticks (no trim, no gap
 clamp) and every beat on its own de-flattened tick -- a countdown run
 collapses to ONE `cue` carried at the run's GO tick, and the cue replay
 pre-rolls the members before that same GO, so each master moment fires
-exactly when the capture aired it while each phrase START keeps its real
-tick so the captured pause ahead of the next phrase survives verbatim.
+exactly when the capture aired it while the real inter-GO pauses between
+phrases survive verbatim (the countdown start and GO tick are kept in the
+`#` comment).
 Condensed demo output is opt-in: static beats (one cue repeating, or an
 A/B pair like the red/green holiday cycle) longer than `--phase-ms` 10 s
 can be folded to a ~10 s reminder at the run's OWN capture cadence
@@ -273,7 +281,7 @@ shape (`cue_class` in the library):
 
 | class                  | shape                                      | behaviour                                                        |
 |------------------------|--------------------------------------------|------------------------------------------------------------------|
-| `PRE_BUFFER_EVENT`     | delay-led countdown member (`F1`..`FD`)       | lookahead cue: sets the crowd's absolute fire time at receipt + delay.  A whole run is ONE master event -- the script holds a single `cascade <phrase>` line, `@ms` anchors when the members START, and the audience collapses on the master beat at `@ + 1300` (the `FD` lead). |
+| `PRE_BUFFER_EVENT`     | delay-led countdown member (`F1`..`FD`)       | lookahead cue: sets the crowd's absolute fire time at receipt + delay.  A whole run is ONE master event -- the script holds a single `cue` line, `@ms` anchors the GO, the members pre-roll before it (the generated countdown ends in the `20`), and the audience collapses on the master beat at `@ms`. |
 | `IMMEDIATE_EVENT`      | `20` go copy; bare `48`/`24 48` effect invoke | snaps the ears' state now (hard override).                      |
 | `GROUP_PICKER_CUE`     | `20 89 A0..26` range bounds; `24 0D` override | assigns a contiguous ear range to a state while others stay.    |
 | `AMBIENT_LOOP_BEAT`    | pulse family (`58 F0 .. 48 04` timing clause) | sustained per-ear loop, not a one-shot beat.                    |
@@ -285,16 +293,18 @@ so consecutive beats can be paced by collapse to collapse.
 
 `tools/gen_show_script.py` turns a captured `analysis/park/frames.tsv`
 (or a raw park feed directly) into such a script, collapsing countdown
-runs to one `cascade hex <lead> <tail> members <set>` cue whose `members`
-clause carries the capture's exact countdown set -- including 93-family
+runs to one `cue hex 20 <tail>` go-variant whose countdown `mwm-send`
+regenerates itself over the canonical `FD..F1,20` chain (the capture's
+start byte and go tick are kept in the `#` comment), including 93-family
 `command` and 97-family `colour-command` chains aired mid-show, real cues
-admitted exactly like effect chains -- and whose lead is the chain's
-captured start (its largest delay byte), not a canonical `FD`.  Frames the
-recorder packed onto ONE capture line are de-flattened at +100 ms per
-frame in document order, so an aired chain keeps its real countdown
-cadence instead of collapsing onto a single stamp with a lexicographic
-tie-break.  The body timeline is built from `effect-command` rows plus
-every member of a genuine countdown chain; the remaining idle smear
+admitted exactly like effect chains; the `20` go-variant anchors the
+whole chain at the captured GO tick, whatever lead the capture used.
+Frames the recorder packed onto ONE capture line are de-flattened at
++100 ms per frame in document order, so an aired chain keeps its real
+countdown cadence instead of collapsing onto a single stamp with a
+lexicographic tie-break.  The body timeline is built from
+`effect-command` rows plus every member of a genuine countdown chain; the
+remaining idle smear
 (solid-color crossfades, lone non-chain commands) stays folded out of a
 show -- but the source's EXIT TAIL (the `color-command`/`command` rows
 after its last effect-command) is admitted too: a show must not strand

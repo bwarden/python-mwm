@@ -25,6 +25,16 @@ class RoundtripTests(unittest.TestCase):
         self.assertEqual(frame_is_valid(frame), (True, ""))
         self.assertEqual(decode_timings(raw_timings(frame)), [frame])
 
+    def test_eleven_byte_cmd_roundtrip(self):
+        # 11-byte command frame (88 bits): high nibble 0x9 marks a command
+        # frame and its low nibble 0x8 fixes the body length (total bytes =
+        # low nibble + 3, here 11 = 8 + 3). Round-trips the exact on-wire
+        # frame 98FDD23500F2010220668B.
+        content = [0xFD, 0xD2, 0x35, 0x00, 0xF2, 0x01, 0x02, 0x20, 0x66]
+        frame = build_frame(content)
+        self.assertEqual(frame.hex(), "98fdd23500f2010220668b")
+        self.assertEqual(decode_timings(raw_timings(frame)), [frame])
+
 
 class RobustnessTests(unittest.TestCase):
     def test_leading_gap_tolerated(self):

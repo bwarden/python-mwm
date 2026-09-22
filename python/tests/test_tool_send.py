@@ -7,6 +7,7 @@ auto-CRC completion so they stay honest without a rig or IR hardware.
 
 import importlib.util
 import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -247,6 +248,31 @@ class SequenceLiveTimingTests(unittest.TestCase):
 
     def test_default_repeat_for_sequence_is_one(self):
         self.assertEqual(S._repeat_default("sequence"), 1)
+
+    def test_cue_countdown_not_subject_to_default_repeat(self):
+        # A countdown cue already carries its own FEC -- every member is a
+        # differently-timed copy of the same state change -- so the default
+        # 2x repeat must not re-air the same countdown values twice.
+        frames = S._build_frames("cue fade cycle=0x16")
+        self.assertGreater(len(frames), 1)
+        self.assertEqual(S.cue_class(frames[0]), "PRE_BUFFER_EVENT")
+        args = types.SimpleNamespace(repeat=2, repeat_explicit=False)
+        self.assertEqual(S._cue_repeat(frames, args), 1)
+
+    def test_lone_frames_keep_the_classic_repeat(self):
+        # A non-countdown command has no inherent redundancy: the default
+        # 2x repeat still applies.
+        frames = S._build_frames("simple both blue")
+        self.assertEqual(len(frames), 1)
+        args = types.SimpleNamespace(repeat=2, repeat_explicit=False)
+        self.assertEqual(S._cue_repeat(frames, args), 2)
+
+    def test_explicit_repeat_wins_over_countdown_exemption(self):
+        # --repeat is the user's explicit call: it overrides the default,
+        # even for a countdown.
+        frames = S._build_frames("cue fade cycle=0x16")
+        args = types.SimpleNamespace(repeat=3, repeat_explicit=True)
+        self.assertEqual(S._cue_repeat(frames, args), 3)
 
     def test_min_gap_constant_default(self):
         self.assertEqual(S._MIN_GAP_MS, 30.0)

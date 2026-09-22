@@ -7,9 +7,9 @@ For every source in --sources (default: all four park captures) it:
   1. resolves ``samples/replay/<source>.msh`` (build with
      ``gen_show_script.py --no-trim`` so every beat
      keeps the capture's own absolute tick, byte-faithful; every
-     collapse carries the capture's exact countdown member set in its
-     ``cascade hex ... members ...`` clause, rebuilt by ``mwm-send``
-     byte-for-byte);
+     countdown run collapses to a cue carrying the ``20`` go-variant,
+     whose countdown ``mwm-send`` generates itself over the canonical
+     chain);
   2. starts the passive receiver recorder behind a fresh ``rx*.jsonl``;
   3. plays the script verbatim through ``mwm-send sequence`` with the
      given cascade/reset flags, teeing the send log;

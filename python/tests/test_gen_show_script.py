@@ -73,7 +73,9 @@ def _make_run(delays: list[int]) -> list[str]:
 
 def _expand_cue(line: str) -> list[str]:
     """Reconstruct the member frames a cue line stands for: mwm-send's
-    lead-derived countdown (the lead byte down to F1, then the 20 go copy).
+    countdown generation -- the canonical CASCADE_DELAYS chain for a
+    20-led go-variant cue, the lead-derived set (the lead byte down to
+    F1, then the 20 go copy) for a legacy F?-led cue.
     """
     _verb, _, arg = line.strip().partition(" ")
     if arg.startswith("hex "):
@@ -81,8 +83,12 @@ def _expand_cue(line: str) -> list[str]:
     phrase = arg.split()
     lead = int(phrase[0], 16)
     tail = [int(x, 16) for x in phrase[1:]]
+    if lead == 0x20:
+        delays = list(G.mwm.CASCADE_DELAYS)
+    else:
+        delays = [*range(lead, 0xF0, -1), 0x20]
     return [G.mwm.build_frame([d, *tail]).hex().upper()
-            for d in [*range(lead, 0xF0, -1), 0x20]]
+            for d in delays]
 
 
 class CascadeRunTests(unittest.TestCase):
@@ -131,9 +137,10 @@ class CascadeRunTests(unittest.TestCase):
         # The park can air the same delay byte twice -- e.g. three 96-chains
         # run together collapse into ONE run of F4 F3 F2 F1 20 F4 F3 F2 F1
         # 20 F4 F3 F2 F1 20.  The multi-cycle run is ONE cue (the countdown's
-        # member set is redundancy): it collapses to a single canonical
-        # F4..F1,20 cue anchored at the run's FIRST GO tick, not to a
-        # members-clause that reproduces every repeated cycle.
+        # member set is redundancy): it collapses to a single cue carrying
+        # the run's immediate 20 go-variant, anchored at the run's FIRST GO
+        # tick -- not to a members-clause that reproduces every repeated
+        # cycle.
         run = _make_run([0xF4, 0xF3, 0xF2, 0xF1, 0x20,
                          0xF4, 0xF3, 0xF2, 0xF1, 0x20])
         self.assertEqual(G._cascade_delays(run),
@@ -143,11 +150,11 @@ class CascadeRunTests(unittest.TestCase):
         lines = G.collapse_beat_lines(rows)
         self.assertEqual(sum(l.startswith("@") for l in lines), 1)
         self.assertEqual(lines[0], "@400")       # the run's FIRST GO tick
-        self.assertEqual(lines[1], "cue hex F4 48 85 58 64")
-        self.assertEqual(_expand_cue(lines[1]),
-                         [G.mwm.build_frame([d, 0x48, 0x85, 0x58, 0x64])
-                          .hex().upper()
-                          for d in [0xF4, 0xF3, 0xF2, 0xF1, 0x20]])
+        self.assertEqual(lines[1], "cue hex 20 48 85 58 64")
+        self.assertEqual(
+            _expand_cue(lines[1]),
+            [G.mwm.build_frame([d, 0x48, 0x85, 0x58, 0x64]).hex().upper()
+             for d in list(G.mwm.CASCADE_DELAYS)])
 
     def test_cue_anchored_at_run_go_tick(self):
         # The cue's @ms IS the run's GO: the moment the 20 go copy fires.
@@ -158,7 +165,7 @@ class CascadeRunTests(unittest.TestCase):
         lines = G.collapse_beat_lines(rows)
         self.assertEqual(sum(l.startswith("@") for l in lines), 1)
         self.assertEqual(lines[0], "@400")
-        self.assertEqual(lines[1], "cue hex FC 48 85 58 64")
+        self.assertEqual(lines[1], "cue hex 20 48 85 58 64")
 
     def test_cascade_runs_reports_run_geometry(self):
         run = _make_run([0xF4, 0xF3, 0xF2, 0xF1, 0x20])
@@ -195,11 +202,14 @@ class ChainAdmissionTests(unittest.TestCase):
         lines = G.collapse_beat_lines(rows)
         cues = [l for l in lines if l.startswith("cue hex ")]
         self.assertEqual(len(cues), 1)
-        # The cue carries the captured chain's lead+phrase; its derived
-        # countdown matches the captured chain (F4..F1,20) member for member.
-        self.assertEqual(cues[0], "cue hex F4 F4 D0 42 08")
-        self.assertEqual(_expand_cue(cues[0]),
-                         [r["hex"] for r in rows[1:6]])
+        # The cue carries the run's immediate 20 go-variant; mwm-send
+        # regenerates the countdown over the canonical chain, which is a
+        # SUPERSET of the captured member set (F4..F1,20) -- every captured
+        # member still airs.
+        self.assertEqual(cues[0], "cue hex 20 F4 D0 42 08")
+        captured = set(r["hex"] for r in rows[1:6])
+        generated = set(_expand_cue(cues[0]))
+        self.assertLessEqual(captured, generated)
 
     def test_color_chain_equally_admitted(self):
         delays = [0xF4, 0xF3, 0xF2, 0xF1, 0x20]
@@ -613,6 +623,20 @@ class MwmSendCueTests(unittest.TestCase):
         beat = self._beat("@400\ncue hex F1 48 85 58 64")
         self.assertEqual(self._delays(beat), [0xF1, 0x20])
 
+    def test_20_led_cue_generates_canonical_countdown(self):
+        # The generator's go-variant cue: the immediate 20 fires at @ms, and
+        # mwm-send generates the full canonical countdown (FD..F1 then 20)
+        # itself, pre-rolled backward from the cue's @ms.
+        beat = self._beat("@400\ncue hex 20 48 85 58 64")
+        self.assertEqual(beat["t_ms"], 400)
+        self.assertTrue(beat["cascade"])
+        self.assertEqual(self._delays(beat),
+                         [*range(0xFD, 0xF0, -1), 0x20])
+        self.assertEqual(beat["rel_ms"][0], -1300.0)
+        self.assertEqual(beat["rel_ms"][-1], 0.0)
+        self.assertEqual(beat["frames"][-1],
+                         M.build_frame([0x20, 0x48, 0x85, 0x58, 0x64]))
+
     def test_hex_beat_not_a_cue(self):
         beat = self._beat("@100\nhex 94FD48855864AE")
         self.assertEqual(beat["t_ms"], 100)
@@ -652,7 +676,7 @@ class MwmSendCueTests(unittest.TestCase):
 
 class ParkSampleParseTests(unittest.TestCase):
     """Every shipped samples/*.msh parses through the real mwm-send parser,
-    and every cue line expands to its documented lead-derived countdown."""
+    and every cue line expands to the countdown mwm-send generates for it."""
 
     def test_every_sample_parses(self):
         files = sorted((ROOT / "samples").glob("*.msh"))
@@ -668,7 +692,7 @@ class ParkSampleParseTests(unittest.TestCase):
                         self.assertEqual(b["frames"][-1][1], 0x20)
                         self.assertEqual(b["rel_ms"][-1], 0.0)
 
-    def test_every_cue_line_matches_lead_derived_expansion(self):
+    def test_every_cue_line_matches_generated_countdown(self):
         for p in sorted((ROOT / "samples").glob("*.msh")):
             with self.subTest(p.name):
                 text = p.read_text()

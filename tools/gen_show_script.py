@@ -20,17 +20,18 @@ works, and a mix of TSVs and raw feeds may be listed on one command line.
 Countdown-cascade runs are COLLAPSED: when consecutive frames share the
 same phrase modulo the delay byte -- delay stepping down the F1..FB (or
 FD..F1) range and then the immediate ``20`` go copy -- the generator
-emits a single ``cue hex <delay-led phrase>`` line anchored at the run's
+emits a single ``cue hex 20 <phrase tail>`` line anchored at the run's
 GO tick, so the script stays compact and a human can edit one cue instead
-of fourteen frames.  The cue LEADS with the chain's captured start (the
-member with the largest delay byte, e.g. ``F4`` -- the first countdown
-step the park aired); ``mwm-send`` derives the countdown from that lead
-byte and pre-rolls each member ``@GO - (d & 0x0F)*100`` ms before the line's
-``@ms`` (the ``F?`` countdown bytes are low-nibble x 100 ms delays,
-F1=100 ms .. FF=1500 ms), so every ear that hears ANY member still fires
-exactly on the moment the ``20`` lands -- the countdown, and its exact
-byte sequence, is redundancy, not show content.  Any other frame falls
-through to a literal ``hex <frame>`` beat.
+of fourteen frames.  The cue carries the run's IMMEDIATE ``20``
+go-variant -- the command that executes at the line's ``@ms`` -- and
+``mwm-send`` generates the countdown itself, pre-rolling each member
+``@GO - (d & 0x0F)*100`` ms before it (the ``F?`` countdown bytes are
+low-nibble x 100 ms delays, F1=100 ms .. FF=1500 ms), so every ear that
+hears ANY member still fires exactly on the moment the ``20`` lands.  The
+countdown, and its exact byte sequence, is redundancy, not show content;
+the ``#`` comment on the cue line records the captured countdown's start
+for a human reader.  Any other frame falls through to a literal
+``hex <frame>`` beat.
 
 Multiple caught cycles of a run (e.g. three 96-chains back to back) still
 collapse to ONE cue at the run's FIRST GO; ``--no-collapse`` is the
@@ -371,23 +372,25 @@ def collapse_beat_lines(rows: list[dict]) -> list[str]:
         delays = _cascade_delays(b["hexes"])
         if delays is not None:
             signal = [d for d in delays if d != GO]
-            # Lead with the COUNTDOWN'S START -- the member that opened the
-            # captured chain (largest delay byte, F4/FC/FD...) -- not the
-            # lowest member, so the cue reads the way the park aired it and
-            # mwm-send derives the missing countdown from that lead.
-            idx = delays.index(max(signal))
+            # The cue carries the run's IMMEDIATE ``20`` go-variant -- the
+            # command that executes at the GO tick.  mwm-send generates the
+            # countdown itself, pre-rolling it backward from the cue's @ms,
+            # so the script never spells out the chain (its bytes are
+            # redundancy, not show content); the comment records the
+            # captured countdown's start for a human reader.
+            go_k = delays.index(GO)
+            go_tick = int(b["rows"][go_k]["tick"])
             frames_b = [bytes.fromhex(h) for h in b["hexes"]]
             phrase = " ".join(f"{x:02X}" for x in
-                              _phrase_bytes(frames_b, idx))
+                              _phrase_bytes(frames_b, go_k))
             # The countdown is anchored on the run's GO tick: @ms IS the
             # moment the 20 go copy fires, and every ear that hears any of
             # the auto-generated members still lands there.
-            go_k = delays.index(GO)
-            go_tick = int(b["rows"][go_k]["tick"])
             out.append(f"@{go_tick}")
             out.append(f"cue hex {phrase}")
             out.append(f"  # {len(b['hexes'])} frames collapsed to one cue "
-                       f"(countdown {max(signal):02X} -> go@{go_tick}ms)")
+                       f"(captured countdown from {max(signal):02X} "
+                       f"-> go@{go_tick}ms)")
         else:
             for row in b["rows"]:
                 out.append(f"@{int(row['tick'])}")
@@ -665,7 +668,8 @@ def _header(args, sources: list[str]) -> list[str]:
            f"..{args.end_tick if args.end_tick is not None else 'end'}"]
           if args.start_tick is not None or args.end_tick is not None else []),
         f"# ticks as ms; cue runs collapsed {pfx}; offset {args.offset} ms"
-        + "; countdown cues carry their lead + the run's GO tick"
+        + "; countdown cues carry the 20 go-variant (mwm-send generates "
+        + "the countdown, pre-rolled backward from the cue's @ms)"
         + ("; skip-prelude on" if args.skip_prelude else "")
         + (f"; trim on (show starts @{args.lead_in}"
            + "; an opening countdown GO keeps its recorded offset)"
