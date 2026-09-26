@@ -24,14 +24,39 @@ make test     # stdlib unittest suite
 make samples  # regenerate samples/park-*.msh + samples/replay/*.msh
 ```
 
+## Releases
+
+`__version__` in [`python/mwm/__init__.py`](python/mwm/__init__.py) is the
+single source of truth for the library version, and `make release` derives the
+git tag from it — a tag cannot claim a version the code doesn't carry. To cut
+a release:
+
+1. Bump `__version__` in `python/mwm/__init__.py`.
+2. Add the matching `## [X.Y.Z]` section to [`CHANGELOG.md`](CHANGELOG.md).
+3. Commit both (`python: bump to X.Y.Z`).
+4. `make release` — it refuses on a dirty tree, a pre-existing tag, or a
+   changelog with no section for that version; runs the test suite; then makes
+   the annotated tag, pushes it, and opens the GitHub Release with
+   auto-generated notes. Needs `gh` on PATH and the `origin` remote.
+
+The tag is the pin for vendored consumers: the Home Assistant integration
+(`ha-mwm-ears`) vendors `python/mwm/`, so it tracks a release tag rather than a
+branch. Releasing stays a local, reviewed step; CI only runs the tests.
+
+## License
+
+LGPL-2.0 — see [`LICENSE`](LICENSE) (with the GPL-2.0 text it incorporates in
+[`COPYING`](COPYING)).
+
 ## Rig research tools (`tools/`)
 
 `tools/` holds standalone Python rig-research utilities for probing real
 MWM ears over the MQTT/Tasmota IR test rig. They talk only to MQTT and the
 `mwm` protocol library at `python/mwm/` — no Home Assistant is installed or
-needed. They require `mosquitto_pub` / `mosquitto_sub` on PATH, the MQTT
-config at `~/.config/ir-remote-tools/mqtt.json` (never committed), and are
-run from the repo root or the `tools/` directory.
+needed. They require Python 3 and the `paho-mqtt` package (the `mwm` library
+itself is stdlib-only), the MQTT config at
+`~/.config/ir-remote-tools/mqtt.json` (never committed), and are run from the
+repo root or the `tools/` directory.
 
 | Tool | Purpose |
 |------|---------|

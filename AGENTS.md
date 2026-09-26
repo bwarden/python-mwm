@@ -26,6 +26,15 @@ not installed here — only the library is unit-tested.
   distillation of it. When changing a decoder here, keep the TS (`web-ui`
   repo) and Perl (`perl-protocol-ir` repo) ports consistent.
 
+## Releases
+
+`python/mwm/__init__.py`'s `__version__` is the version source of truth;
+`make release` derives the tag from it, so bump the version and add the
+`CHANGELOG.md` section *before* running it (it refuses a dirty tree, a
+duplicate tag, or a changelog with no matching section). Release notes live in
+`CHANGELOG.md`; the tag is the pin vendored consumers (`ha-mwm-ears`) use. CI
+(`.github/workflows/test.yml`) only runs `make test` — it never publishes.
+
 ## Replay validation (tools + overnight runs)
 
 `tools/replay_run.py` plays a captured park show back verbatim and checks
