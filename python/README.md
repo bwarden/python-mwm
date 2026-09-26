@@ -28,12 +28,12 @@ the separate **ha-mwm-ears** repository and consumes the same protocol.
 Stdlib only — Home Assistant is not installed or needed here:
 
 ```
-make test-python   # from the repo root
+make test   # from the repo root
 cd python && PYTHONPATH=. python3 -m unittest discover -s tests -v
 ```
 
-Running `make test-python` at the repo root first runs a `compileall`
-syntax check of the library and tests (`build-python`), then the suite.
+Running `make test` at the repo root first runs a `compileall` syntax check
+of the library and tests (`build`), then the suite.
 
 ## Consuming the library
 
