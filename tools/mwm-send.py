@@ -1114,7 +1114,11 @@ def main() -> None:
     if args.repeat is None:
         args.repeat = _repeat_default(args.verb)
 
-    mqtt = load_mqtt(Path(args.mqtt_json))
+    # `sequence --dump` prints the transmit stream and returns before any
+    # publish, so it needs no broker config. Every other path does: the
+    # one-shot and interactive verbs have no --dump guard and always send.
+    mqtt = (None if args.dump and args.verb == "sequence"
+            else load_mqtt(Path(args.mqtt_json)))
     if args.verb:
         _one_shot(mqtt, args)
     else:
