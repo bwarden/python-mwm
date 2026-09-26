@@ -17,5 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      # stdlib only: neither the library nor the tests need paho-mqtt.
+      # The suite loads the rig tool modules (mwm-send.py, annotate_captures.py)
+      # to test their pure logic, and those import _mqtt, which imports paho at
+      # module level. The mwm library itself is stdlib-only; this is the tools'
+      # dependency. Held below 2.0, whose callback API the tools predate.
+      - run: pip install 'paho-mqtt>=1.6,<2'
       - run: make test
