@@ -43,6 +43,10 @@ The tag is the pin for vendored consumers: the Home Assistant integration
 (`ha-mwm-ears`) vendors `python/mwm/`, so it tracks a release tag rather than a
 branch. Releasing stays a local, reviewed step; CI only runs the tests.
 
+`make release` marks the new release as "Latest" — GitHub otherwise gives the
+badge to whichever release was created last, so if you ever backfill an older
+version afterwards, hand it back with `gh release edit v0.1.0 --latest=false`.
+
 ## License
 
 LGPL-2.0 — see [`LICENSE`](LICENSE) (with the GPL-2.0 text it incorporates in

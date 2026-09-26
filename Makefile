@@ -35,4 +35,4 @@ release:
 	$(MAKE) test
 	git tag -a v$(VERSION) -m "mwm $(VERSION)"
 	git push origin v$(VERSION)
-	gh release create v$(VERSION) --title "mwm $(VERSION)" --generate-notes
+	gh release create v$(VERSION) --title "mwm $(VERSION)" --generate-notes --latest
