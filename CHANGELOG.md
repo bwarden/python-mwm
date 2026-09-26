@@ -10,6 +10,27 @@ drift from the version it claims to release.
 
 ## [Unreleased]
 
+### Fixed
+
+- `mwm-send.py --dump sequence` no longer requires the rig's MQTT config.
+  `--dump` is the tool's offline mode — it prints the transmit stream and
+  returns before any publish — but it still loaded
+  `~/.config/ir-remote-tools/mqtt.json` unconditionally, so checking a show's
+  transmit stream offline needed live rig credentials:
+
+  ```
+  FileNotFoundError: [Errno 2] No such file or directory:
+    '.../.config/ir-remote-tools/mqtt.json'
+  ```
+
+  `compare_capture.py` and the park-source fidelity tests shell out to
+  `mwm-send.py --dump`, so the test suite could only pass on a machine with the
+  rig config present. The one-shot and interactive verbs have no `--dump` guard
+  and always publish, so they still load the config and still fail loudly
+  without it.
+- CI installs `paho-mqtt` before `make test`; the suite loads the rig tool
+  modules, which import it at module level.
+
 ## [0.2.0] - 2026-09-25
 
 ### Added

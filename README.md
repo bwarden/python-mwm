@@ -20,9 +20,14 @@ Home Assistant integration lives in the separate `ha-mwm-ears` repo.
 
 ```sh
 make build    # compileall the mwm library + tests
-make test     # stdlib unittest suite
+make test     # unittest suite (299 tests)
 make samples  # regenerate samples/park-*.msh + samples/replay/*.msh
 ```
+
+The suite loads the rig tool modules to test their pure logic, so it needs
+`paho-mqtt` installed even though the `mwm` library itself is stdlib-only. It
+is otherwise hermetic — no broker, no rig hardware, and no
+`~/.config/ir-remote-tools/mqtt.json`.
 
 ## Releases
 

@@ -12,7 +12,9 @@ This repo holds the MWM protocol library (`python/mwm/`, stdlib-only) and
 the standalone rig research tools (`tools/`), with shared `samples/`,
 `docs/`, and `analysis/`. Run python tests via `make test` (`cd python &&
 PYTHONPATH=. python -m unittest discover -s tests`); platform/HA modules are
-not installed here — only the library is unit-tested.
+not installed here. The suite loads the tool modules to test their pure
+logic, so it needs `paho-mqtt` present, but is otherwise hermetic -- no
+broker, no rig, and no `~/.config/ir-remote-tools/mqtt.json`.
 
 - MQTT IR test rig: broker, credentials, and the Tasmota transmitter/receiver
   topics live in `~/.config/ir-remote-tools/mqtt.json` (outside this repo).
