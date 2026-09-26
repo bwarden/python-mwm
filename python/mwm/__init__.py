@@ -22,7 +22,7 @@ Sources of truth (all in this repo):
                                       and end-bit-recovery logic.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from .palette import (
     EAR_STATE_OFF,

@@ -10,6 +10,8 @@ drift from the version it claims to release.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-26
+
 ### Fixed
 
 - `mwm-send.py --dump sequence` no longer requires the rig's MQTT config.
@@ -90,6 +92,7 @@ drift from the version it claims to release.
 - Rig research tools, the MWM capture corpus in `samples/`, and the protocol
   reference in `docs/mwm-show-protocol.md`.
 
-[Unreleased]: https://github.com/bwarden/python-mwm/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/bwarden/python-mwm/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/bwarden/python-mwm/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/bwarden/python-mwm/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/bwarden/python-mwm/releases/tag/v0.1.0
