@@ -10,6 +10,25 @@ drift from the version it claims to release.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-26
+
+### Changed
+
+- **Licensing: LGPL-2.0 → GPL-2.0-or-later.** `LICENSE` now carries the
+  FSF's standard notice ("either version 2 of the License, or (at your
+  option) any later version") above the verbatim GPL-2.0 text, which is what
+  makes the "or later" grant real. `COPYING` is gone: it existed only to
+  supply the GPL-2.0 text that LGPL-2.0 incorporates, and under the GPL there
+  is no second text to supply.
+
+  What this buys: GPL-2.0 *on its own* is not compatible with GPLv3, so
+  LGPL-2.0 could not be combined with GPLv3-licensed work. "Or later" can, so
+  this code can now be incorporated into a GPLv3 project.
+
+  **Earlier releases are not relicensed.** v0.1.0 through v0.2.1 shipped
+  under LGPL-2.0 and stay that way — each release carries the terms it was
+  published under, and `ha-mwm-ears` may already vendor one of them.
+
 ## [0.2.1] - 2026-09-26
 
 ### Fixed
@@ -92,7 +111,8 @@ drift from the version it claims to release.
 - Rig research tools, the MWM capture corpus in `samples/`, and the protocol
   reference in `docs/mwm-show-protocol.md`.
 
-[Unreleased]: https://github.com/bwarden/python-mwm/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/bwarden/python-mwm/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bwarden/python-mwm/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/bwarden/python-mwm/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/bwarden/python-mwm/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/bwarden/python-mwm/releases/tag/v0.1.0

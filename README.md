@@ -55,8 +55,9 @@ version afterwards, hand it back with `gh release edit v0.1.0 --latest=false`.
 
 ## License
 
-LGPL-2.0 — see [`LICENSE`](LICENSE) (with the GPL-2.0 text it incorporates in
-[`COPYING`](COPYING)).
+GPL-2.0-or-later — see [`LICENSE`](LICENSE). Releases v0.3.0 and later are
+under these terms; v0.1.0 through v0.2.1 were released under LGPL-2.0 and
+remain so.
 
 ## Rig research tools (`tools/`)
 
