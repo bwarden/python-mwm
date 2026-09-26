@@ -41,8 +41,9 @@ a release:
 3. Commit both (`python: bump to X.Y.Z`).
 4. `make release` — it refuses on a dirty tree, a pre-existing tag, or a
    changelog with no section for that version; runs the test suite; then makes
-   the annotated tag, pushes it, and opens the GitHub Release with
-   auto-generated notes. Needs `gh` on PATH and the `origin` remote.
+   the annotated tag, pushes it, and opens the GitHub Release using that
+   `CHANGELOG.md` section as the release notes. Needs `gh` on PATH and the
+   `origin` remote.
 
 The tag is the pin for vendored consumers: the Home Assistant integration
 (`ha-mwm-ears`) vendors `python/mwm/`, so it tracks a release tag rather than a

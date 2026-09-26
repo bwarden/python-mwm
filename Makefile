@@ -27,6 +27,8 @@ clean:
 
 # Tag and publish a release. Before running: bump __version__ in
 # python/mwm/__init__.py, add the matching CHANGELOG.md section, commit both.
+# That changelog section becomes the release notes -- `gh --generate-notes`
+# yields nothing for `area:`-prefixed commits.
 # The release itself stays a local, reviewed step -- CI only runs the tests.
 release:
 	@git diff --quiet HEAD || { echo "refusing to release with uncommitted changes"; exit 1; }
@@ -35,4 +37,5 @@ release:
 	$(MAKE) test
 	git tag -a v$(VERSION) -m "mwm $(VERSION)"
 	git push origin v$(VERSION)
-	gh release create v$(VERSION) --title "mwm $(VERSION)" --generate-notes --latest
+	@awk '/^## \[/{p=index($$0,"$(VERSION)")>0} p' CHANGELOG.md | \
+		gh release create v$(VERSION) --title "mwm $(VERSION)" --notes-file - --latest
