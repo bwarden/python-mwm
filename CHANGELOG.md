@@ -10,6 +10,17 @@ drift from the version it claims to release.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-30
+
+### Changed
+
+- **MwmCommand: added stretch parameters to compensate for over-eager transmitters
+
+Tuya-based S18 transmitters with original firmware transmit faster than the specified
+time, so we need to support manually stretching out the transmit intervals to compensate.
+This is applied in the https://github.com/bwarden/ha-mwm-ears integration, which vendors
+this library.
+
 ## [0.3.0] - 2026-09-26
 
 ### Changed
