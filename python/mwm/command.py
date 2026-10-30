@@ -27,14 +27,36 @@ except ImportError:  # minimal stand-in with the same construction contract
 
 
 class MwmCommand(_FrameworkCommand):
-    """One MWM show message ready for an infrared emitter."""
+    """One MWM show message ready for an infrared emitter.
 
-    def __init__(self, frame: bytes, *, repeat_count: int = 0) -> None:
+    Args:
+        frame: The framed MWM bytes to transmit.
+        repeat_count: Number of extra spaced re-transmissions.
+        space_stretch_us: Extra microseconds added to every space (negative)
+            segment in the merged timing list. Some Tuya-firmware S18 IR
+            blasters compress spaces by a fixed offset; pre-stretching spaces
+            compensates for that clock compression.
+    """
+
+    def __init__(
+        self,
+        frame: bytes,
+        *,
+        repeat_count: int = 0,
+        space_stretch_us: int = 0,
+    ) -> None:
         super().__init__(modulation=CARRIER_HZ, repeat_count=repeat_count)
         self.frame = bytes(frame)
+        self._space_stretch_us = space_stretch_us
 
     def get_raw_timings(self) -> list[int]:
-        return raw_timings(self.frame)
+        timings = raw_timings(self.frame)
+        if self._space_stretch_us == 0:
+            return timings
+        out = list(timings)
+        for i in range(1, len(out), 2):  # spaces are odd indices in HA convention
+            out[i] -= self._space_stretch_us
+        return out
 
     def __repr__(self) -> str:  # debugging aid
         return f"MwmCommand({self.frame.hex().upper()})"
